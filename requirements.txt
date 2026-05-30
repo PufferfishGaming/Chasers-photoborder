@@ -1,0 +1,4 @@
+Pillow
+extcolors
+PySide6
+pytest
