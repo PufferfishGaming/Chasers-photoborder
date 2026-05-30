@@ -48,8 +48,8 @@ stevequinn's original MIT License — his copyright notice is preserved in the
 ## Installation
 
 ```bash
-git clone <your-repo-url>
-cd photoborder
+git clone https://github.com/PufferfishGaming/Chasers-photoborder
+cd Chasers-photoborder
 pip install -r requirements.txt
 ```
 
@@ -204,5 +204,11 @@ pytest -s ./tests
 
 ## License
 
-MIT License — (c) 2024 stevequinn (original author). See [`LICENSE`](LICENSE).
-This fork's additional features are released under the same license.
+MIT License.
+
+- (c) 2024 stevequinn — original [photoborder](https://github.com/stevequinn/photoborder) author.
+- (c) 2025 PufferfishGaming — Chaser's PhotoBorder fork and additional features.
+
+Both are released under the same MIT terms. See [`LICENSE`](LICENSE). Under MIT,
+stevequinn's original copyright notice is retained; the fork's notice is added
+alongside it, not in place of it.
