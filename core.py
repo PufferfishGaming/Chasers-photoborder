@@ -182,18 +182,20 @@ def process_image(path: str,
     palette_x = palette_y = 0
     available_text_width = None
     if add_palette:
-        palette_size = round(border.bottom / 3)
+        # Use the caption band (original per-type bottom border), not the possibly
+        # ballooned border.bottom, so the palette stays a sensible size and sits in
+        # the bottom band rather than scaling up / floating mid-canvas when a wide
+        # photo is padded to a tall ratio.
+        band = border.caption_band or border.bottom
+        palette_size = round(band / 3)
         color_palette = load_image_color_palette(img, palette_size)
         margin = round(palette_size / 2)
-        # Anchor the palette to the bottom-right corner of the PHOTO, not the
-        # canvas. The image's right edge sits at border.left + img.width. Anchoring
-        # here means the palette always tucks under the photo's right side and
-        # never drifts toward the centre as the side borders grow on wide aspect
-        # ratios (previously it was anchored to border.right, which pushed it
-        # inward by the full border width - up to thousands of px on 16:9).
+        # Anchor the palette to the bottom-right corner of the PHOTO horizontally,
+        # and to the caption band at the bottom of the canvas vertically.
         image_right_edge = border.left + img.width
         palette_x = image_right_edge - color_palette.width - margin
-        palette_y = img_with_border.height - round(border.bottom / 2) - round(color_palette.height / 2)
+        band_top = img_with_border.height - band
+        palette_y = band_top + round(band / 2) - round(color_palette.height / 2)
 
         if border_type == BorderType.POLAROID:
             # Text starts at border.left and must end before the palette begins.

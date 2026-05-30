@@ -24,6 +24,12 @@ class Border:
     bottom: int
     left: int
     border_type: BorderType
+    # The bottom-strip height the EXIF/palette caption should be sized and placed
+    # within. This is the ORIGINAL per-type bottom border, before any aspect-ratio
+    # padding is added below it. When a wide photo is padded to a tall ratio, the
+    # actual `bottom` balloons with empty space, but the caption stays in a band of
+    # this height near the bottom edge instead of floating in the middle.
+    caption_band: int = 0
 
 def get_border_size(img_width: int, img_height: int, reduceby: int=4) -> int:
     """Calculate an image border size based on the golden ratio.
@@ -113,6 +119,12 @@ def create_border(imgw: int, imgh: int, border_type: Border, target_ratio: float
     bbottom = get_border_size(imgw, imgh, rbottom)
     bleft = get_border_size(imgw, imgh, rleft)
 
+    # The caption band is the per-type bottom border BEFORE any ratio padding.
+    # The caption (EXIF + palette) is sized and placed within a strip of this
+    # height at the bottom of the canvas, so ratio padding that balloons `bottom`
+    # only adds empty space - it doesn't drag the caption into the middle.
+    caption_band = bbottom
+
     if border_type == BorderType.INSTAGRAM:
         # In the case of instagram, we want to enforce an image ratio of 4/5 with a minimum border so the
         # non-padded sides also have a border.
@@ -121,6 +133,8 @@ def create_border(imgw: int, imgh: int, border_type: Border, target_ratio: float
         bright = ratio_border_horizonal
         bbottom = ratio_border_vertical
         bleft = ratio_border_horizonal
+        # Instagram deliberately uses its full symmetric border for the caption.
+        caption_band = bbottom
     elif target_ratio:
         # Generalised ratio padding for every other border type.
         #
@@ -151,7 +165,7 @@ def create_border(imgw: int, imgh: int, border_type: Border, target_ratio: float
             bleft += add_left
             bright += add_right
 
-    border = Border(btop, bright, bbottom, bleft, border_type)
+    border = Border(btop, bright, bbottom, bleft, border_type, caption_band=caption_band)
 
     return border
 
@@ -176,6 +190,13 @@ def draw_exif(img: Image, exif: dict, border: Border, font: tuple[str, int], bol
     centered = border.border_type in (BorderType.POLAROID, BorderType.LARGE, BorderType.INSTAGRAM)
     multiplier = 0.2 if centered else 0.5
 
+    # The caption lives in a band of height `band` at the very bottom of the
+    # canvas. Normally this equals border.bottom; but when ratio padding has
+    # ballooned border.bottom (e.g. a landscape padded to a tall 9:16), band stays
+    # the original per-type bottom, so the text is sized and placed near the
+    # bottom edge instead of growing huge and floating in the middle.
+    band = border.caption_band or border.bottom
+
     # Build the three lines up front so we can size against their widths.
     line_heading = f"{exif['Make']} {exif['Model']}"
     line_lens = f"{exif['LensMake']} {exif['LensModel']}"
@@ -184,10 +205,10 @@ def draw_exif(img: Image, exif: dict, border: Border, font: tuple[str, int], bol
     # Height-and-width constrained sizing. The heading uses the bold font; the two
     # body lines use the regular font. We size each against the width budget.
     font_size = tm.get_optimal_font_size_constrained(
-        [line_lens, line_settings], border.bottom * multiplier, available_width,
+        [line_lens, line_settings], band * multiplier, available_width,
         font[0], index=font[1])
     heading_font_size = tm.get_optimal_font_size_constrained(
-        [line_heading], border.bottom * (multiplier + 0.02), available_width,
+        [line_heading], band * (multiplier + 0.02), available_width,
         boldfont[0], index=boldfont[1])
     font = tm.create_font(font_size, fontpath=font[0], index=font[1])
     heading_font = tm.create_font(heading_font_size, fontpath=boldfont[0], index=boldfont[1])
@@ -195,15 +216,15 @@ def draw_exif(img: Image, exif: dict, border: Border, font: tuple[str, int], bol
     stack_lines = centered
     horizontally_centered = centered and border.border_type != BorderType.POLAROID
 
-    # Vertical align text in bottom border based on total font block height.
+    # Vertical align text within the caption band at the BOTTOM of the canvas.
+    # The band occupies the last `band` pixels of the image height.
+    band_top = img.height - band
     if stack_lines:
-         # 3 Lines of text. 1 heading, two normal. Minus heading margins. A bit sketchy but it aligns fine.
+         # 3 Lines of text. 1 heading, two normal. Minus heading margins.
         total_font_height = heading_font.size + (2 * font.size) - (heading_font.size / 2)
-        y = img.height - border.bottom + \
-            (border.bottom / 2) - (total_font_height / 2)
+        y = band_top + (band / 2) - (total_font_height / 2)
     else:
-        # y = img.height - (border.bottom / 2) - (heading_font.size / 3)
-        y = img.height - (border.bottom / 2) + (heading_font.size / 3)
+        y = band_top + (band / 2) + (heading_font.size / 3)
 
     x = border.left
 
